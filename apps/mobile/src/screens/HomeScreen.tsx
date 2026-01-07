@@ -1,11 +1,10 @@
-import React from "react";
-import { View, Text, Pressable, Alert, Platform, Linking } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, Alert, ActivityIndicator, Platform, Linking } from "react-native";
 import { useLocationState } from "../state/LocationContext";
-import { MOCK_PHARMACIES } from "../data/mockPharmacies";
 import { distanceMeters } from "../lib/geo";
+import { fetchOpenPharmacies, Pharmacy } from "../lib/api";
 
-function openMapsDirections(lat: number, lng: number, label?: string) {
-  // Apple Maps vs Google Maps handling (simple + reliable)
+function openMapsDirections(lat: number, lng: number) {
   const url = Platform.select({
     ios: `http://maps.apple.com/?daddr=${lat},${lng}`,
     android: `google.navigation:q=${lat},${lng}`,
@@ -21,25 +20,45 @@ function openMapsDirections(lat: number, lng: number, label?: string) {
 
 export default function HomeScreen() {
   const { coords } = useLocationState();
+  const [loading, setLoading] = useState(false);
 
-  function driveToNearestPharmacy() {
+  async function driveToNearestPharmacy() {
     if (!coords) {
       Alert.alert("Location not available", "Please enable location first.");
       return;
     }
 
-    let best = MOCK_PHARMACIES[0];
-    let bestDist = Number.POSITIVE_INFINITY;
+    setLoading(true);
+    try {
+      const data = await fetchOpenPharmacies(coords.latitude, coords.longitude);
+      const pharmacies = data.pharmacies;
 
-    for (const p of MOCK_PHARMACIES) {
-      const d = distanceMeters(coords, { latitude: p.latitude, longitude: p.longitude });
-      if (d < bestDist) {
-        bestDist = d;
-        best = p;
+      if (!pharmacies?.length) {
+        Alert.alert("No pharmacies found", "Try again in a moment.");
+        return;
       }
-    }
 
-    openMapsDirections(best.latitude, best.longitude, best.name);
+      let best: Pharmacy = pharmacies[0];
+      let bestDist = Number.POSITIVE_INFINITY;
+
+      for (const p of pharmacies) {
+        const d = distanceMeters(coords, { latitude: p.latitude, longitude: p.longitude });
+        if (d < bestDist) {
+          bestDist = d;
+          best = p;
+        }
+      }
+
+      openMapsDirections(best.latitude, best.longitude);
+    } catch (e: any) {
+      Alert.alert(
+        "Could not load pharmacies",
+       e?.message ??
+          "Check that the API is running and your phone is on the same Wi-Fi as your PC."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -48,11 +67,16 @@ export default function HomeScreen() {
 
       <Pressable
         onPress={driveToNearestPharmacy}
-        style={{ padding: 16, borderRadius: 12, backgroundColor: "#111" }}
+        disabled={loading}
+        style={{ padding: 16, borderRadius: 12, backgroundColor: "#111", opacity: loading ? 0.7 : 1 }}
       >
-        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-          Drive me to the nearest pharmacy
-        </Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+            Drive me to the nearest pharmacy
+          </Text>
+        )}
       </Pressable>
 
       <Pressable
