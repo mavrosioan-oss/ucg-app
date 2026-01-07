@@ -8,7 +8,7 @@ export type Pharmacy = {
   source?: string;
 };
 
-const API_BASE = "http://192.168.2.13:4000";
+const API_BASE = "https://YOUR-TUNNEL-URL.trycloudflare.com";
 
 async function fetchWithTimeout(url: string, ms: number) {
   const controller = new AbortController();
