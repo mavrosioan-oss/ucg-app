@@ -3,26 +3,38 @@ import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import * as Location from "expo-location";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../app/AppNavigator";
+import { useLocationState } from "../state/LocationContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Location">;
 
 export default function LocationScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { setCoords } = useLocationState();
 
   async function request() {
     setError(null);
     setLoading(true);
+
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
+
       if (status !== "granted") {
-        setError("Location permission denied. You can still use lists later, but navigation needs location.");
+        setError(
+          "Location permission denied. You can still browse lists later, but navigation requires location."
+        );
         setLoading(false);
         return;
       }
 
-      // Warm up GPS once (optional now, useful later)
-      await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      setCoords({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
 
       navigation.replace("Home");
     } catch (e) {
@@ -34,6 +46,7 @@ export default function LocationScreen({ navigation }: Props) {
   return (
     <View style={{ flex: 1, padding: 20, justifyContent: "center", gap: 12 }}>
       <Text style={{ fontSize: 22, fontWeight: "800" }}>Enable location</Text>
+
       <Text style={{ opacity: 0.8 }}>
         UCG uses your location to find the nearest open pharmacy or available ER clinic.
       </Text>
@@ -43,12 +56,24 @@ export default function LocationScreen({ navigation }: Props) {
       <Pressable
         onPress={request}
         disabled={loading}
-        style={{ padding: 16, borderRadius: 12, backgroundColor: "#111", opacity: loading ? 0.7 : 1 }}
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          backgroundColor: "#111",
+          opacity: loading ? 0.7 : 1,
+        }}
       >
         {loading ? (
-          <ActivityIndicator />
+          <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", textAlign: "center" }}>
+          <Text
+            style={{
+              color: "#fff",
+              fontSize: 16,
+              fontWeight: "700",
+              textAlign: "center",
+            }}
+          >
             Allow Location
           </Text>
         )}
